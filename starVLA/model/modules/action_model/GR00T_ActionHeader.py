@@ -230,7 +230,8 @@ class FlowmatchingActionHead(nn.Module):
         diffusion_model_cfg = {**action_model_cfg, **diffusion_model_cfg}
         self.model = DiT(**diffusion_model_cfg)
         self.action_dim = config.action_dim
-        self.action_horizon = config.future_action_window_size + 1
+        # TODO: check later
+        self.action_horizon = config.action_horizon
         self.num_inference_timesteps = config.num_inference_timesteps
 
         self.state_encoder = MLP(

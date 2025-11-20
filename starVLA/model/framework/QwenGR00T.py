@@ -186,13 +186,13 @@ if __name__ == "__main__":
     parser.add_argument("--config_yaml", type=str, default="./starVLA/config/training/starvla_cotrain_oxe.yaml", help="Path to YAML config")
     args, clipargs = parser.parse_known_args()
 
-    debugpy.listen(("0.0.0.0", 10092))
-    print("🔍 Rank 0 waiting for debugger attach on port 10092...")
-    debugpy.wait_for_client()
+    # debugpy.listen(("0.0.0.0", 10092))
+    # print("🔍 Rank 0 waiting for debugger attach on port 10092...")
+    # debugpy.wait_for_client()
 
     cfg = OmegaConf.load(args.config_yaml)
     # try get model
-    cfg.framework.qwenvl.base_vlm = "./playground/Pretrained_models/Qwen3-VL-4B-Instruct"
+    cfg.framework.qwenvl.base_vlm = "/home/zhangjinyu/ckpts/Qwen2.5-VL-3B-Instruct"
      
     model: Qwen_GR00T = Qwen_GR00T(cfg)
     print(model)
@@ -203,10 +203,11 @@ if __name__ == "__main__":
     image = Image.fromarray(np.random.randint(0, 255, (224, 224, 3), dtype=np.uint8))
     # Create a sample
     sample = {
-        "action": np.random.uniform(-1, 1, size=(16, 7)).astype(np.float16), # action_chunk, action_dim
+        #  NOTE: fixed to 7, changed to 16
+        "action": np.random.uniform(-1, 1, size=(16, 16)).astype(np.float16), # action_chunk, action_dim
         "image": [image, image], # two views
         "lang": "This is a fake for testing.",
-        "state" : np.random.uniform(-1, 1, size=(1, 7)).astype(np.float16), # chunk, state_dim
+        "state" : np.random.uniform(-1, 1, size=(1, 16)).astype(np.float16), # chunk, state_dim
     }
 
     batch  = [sample, sample]  # batch size 2

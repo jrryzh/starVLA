@@ -23,7 +23,7 @@ from starVLA.model.modules.vlm.QWen2_5 import _ACTION_TOKEN_MAX, _ACTION_TOKEN_M
 
 class Fast_Action_Tokenizer(nn.Module):
     """One MLP ResNet block with a residual connection."""
-    def __init__(self, fast_tokenizer_name="playground/Pretrained_models/fast"):
+    def __init__(self, fast_tokenizer_name="/home/zhangjinyu/ckpts/fast"):
         super().__init__()
         
         self.fast_tokenizer = AutoProcessor.from_pretrained(
@@ -96,9 +96,9 @@ def start_debugpy_once():
 
 if __name__ == "__main__":
 
-    start_debugpy_once()
+    # start_debugpy_once()
 
-    fast_tokenizer_name = "./playground/Pretrained_models/fast"
+    fast_tokenizer_name = "/home/zhangjinyu/ckpts/fast"
     fast_tokenizer = Fast_Action_Tokenizer(fast_tokenizer_name=fast_tokenizer_name)
     raw_actions = [np.random.randn(16, 7), np.random.randn(16, 7)]
 

@@ -71,7 +71,13 @@ def get_vla_dataset(
 
     dataset_mixture = []
     for d_name, d_weight, robot_type in filtered_mixture_spec:
-        dataset_mixture.append((make_LeRobotSingleDataset(Path(data_root_dir), d_name, robot_type, delete_pause_frame=delete_pause_frame), d_weight))
+        # For agibot_franka, disable pause frame deletion since the action structure is different
+        # and the existing pause frame detection logic doesn't work with agibot actions
+        effective_delete_pause_frame = delete_pause_frame
+        if robot_type == "agibot_franka":
+            effective_delete_pause_frame = False
+
+        dataset_mixture.append((make_LeRobotSingleDataset(Path(data_root_dir), d_name, robot_type, delete_pause_frame=effective_delete_pause_frame), d_weight))
 
     return LeRobotMixtureDataset(
         dataset_mixture,

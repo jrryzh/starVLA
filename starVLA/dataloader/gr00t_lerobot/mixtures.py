@@ -11,6 +11,14 @@ from typing import Dict, List, Tuple
 # Dataset mixture name mapped to a list of tuples containing:
 ## {nakename: [(data_name, sampling_weight, robot_type)] }
 DATASET_NAMED_MIXTURES = {
+    "random_pick_place_all": [
+        ("task_3124_3136_jinyu", 1.0, "agibot_franka"),
+    ],
+
+    # "random_pick_place": [
+    #     ("task_3124", 1.0, "agibot_franka"),
+    #     ("task_3136", 1.0, "agibot_franka"),
+    # ],
 
     "libero_all": [
         ("libero_object_no_noops_1.0.0_lerobot", 1.0, "libero_franka"),

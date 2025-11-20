@@ -203,28 +203,61 @@ class VLATrainer(TrainerUtils):
         self.checkpoint_dir = os.path.join(self.config.output_dir, "checkpoints")
         os.makedirs(self.checkpoint_dir, exist_ok=True)
 
-        pretrained_checkpoint = getattr(self.config.trainer, "pretrained_checkpoint", None)
+        resume_from_checkpoint = getattr(self.config.trainer, "resume_from_checkpoint", None)
         is_resume = getattr(self.config.trainer, "is_resume", False)
 
         # resume training state
-        if pretrained_checkpoint and is_resume:
-            self._load_checkpoint(self.config.resume_from_checkpoint)
+        if resume_from_checkpoint and is_resume:
+            self._load_checkpoint(resume_from_checkpoint)
 
     def _load_checkpoint(self, checkpoint_path):
         """load checkpoint"""
         self.accelerator.load_state(checkpoint_path)
+
+        # restore completed_steps from checkpoint
+        if accelerator.is_main_process:
+            # try to extract steps from checkpoint filename
+            import re
+            match = re.search(r'steps_(\d+)', checkpoint_path)
+            if match:
+                self.completed_steps = int(match.group(1))
+                self.accelerator.print(f"Restored completed_steps: {self.completed_steps}")
+                # DEBUG:
+                print(f"Restored completed_steps: {self.completed_steps}")
+            else:
+                # fallback: try to read from summary.jsonl
+                summary_file = os.path.join(self.config.output_dir, "summary.jsonl")
+                if os.path.exists(summary_file):
+                    with open(summary_file, "r") as f:
+                        lines = f.readlines()
+                        if lines:
+                            last_entry = json.loads(lines[-1])
+                            self.completed_steps = last_entry.get("steps", 0)
+                            self.accelerator.print(f"Restored completed_steps from summary: {self.completed_steps}")
+                            # DEBUG:
+                            print(f"Restored completed_steps from summary: {self.completed_steps}")
+                else:
+                    self.accelerator.print("Warning: Could not restore completed_steps, starting from 0")
+                    # DEBUG:
+                    print("Warning: Could not restore completed_steps, starting from 0")
+
+        # broadcast completed_steps to all processes
+        if dist.is_initialized():
+            self.completed_steps = torch.tensor(self.completed_steps, dtype=torch.int64).cuda()
+            dist.broadcast(self.completed_steps, src=0)
+            self.completed_steps = self.completed_steps.item()
+
         self.accelerator.print(f"Resumed from checkpoint: {checkpoint_path}")
 
     def _save_checkpoint(self):
         """save current training state"""
 
+        checkpoint_path = os.path.join(self.checkpoint_dir, f"steps_{self.completed_steps}")
+
+        # save complete accelerator state (includes model, optimizer, scheduler, random states)
+        self.accelerator.save_state(checkpoint_path)
+
         if accelerator.is_main_process:
-
-            checkpoint_path = os.path.join(self.checkpoint_dir, f"steps_{self.completed_steps}")
-            # save model state
-            state_dict = self.accelerator.get_state_dict(self.model)
-            torch.save(state_dict, checkpoint_path + "_pytorch_model.pt")
-
             # save training metadata
             summary_data = {
                 "steps": self.completed_steps,
