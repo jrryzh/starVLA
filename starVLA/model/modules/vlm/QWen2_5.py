@@ -83,11 +83,16 @@ class _QWen_VL_Interface(nn.Module):
         super().__init__()
 
         qwenvl_config = config.framework.get("qwenvl", {})
-        model_id = qwenvl_config.get("base_vlm", "Qwen/Qwen2.5-VL-3B-Instruct")
+        # HACK: set path to qwen2.5
+        # model_id = qwenvl_config.get("base_vlm", "/inspire/hdd/project/robot-learning-system/zhangjinyu-253108120325/ckpts/Qwen2.5-VL-3B-Instruct")
+        # model_id = "/inspire/hdd/project/robot-learning-system/zhangjinyu-253108120325/ckpts/Qwen2.5-VL-3B-Instruct"
+        model_id = "/inspire/hdd/project/robot-learning-system/zhangjinyu-253108120325/ckpts/Qwen2.5-VL-3B-Instruct-Action"
 
         model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
             model_id,
-            attn_implementation="flash_attention_2",
+            # attn_implementation="flash_attention_2",
+            # HACK: work around for sdpa now
+            attn_implementation="sdpa",
             torch_dtype="auto",
             device_map="cuda",
         )
