@@ -614,7 +614,7 @@ class AgiBotDataConfig:
 
     language_keys = ["annotation.human.action.task_description"]
     observation_indices = [0]
-    action_indices = list(range(16))
+    action_indices = list(range(8))
 
     def modality_config(self):
         video_modality = ModalityConfig(
@@ -662,8 +662,8 @@ class AgiBotDataConfig:
                 normalization_modes={
                     "state.left_arm": "min_max",
                     "state.right_arm": "min_max",
-                    "state.left_gripper": "binary",
-                    "state.right_gripper": "binary",
+                    "state.left_gripper": "min_max",
+                    "state.right_gripper": "min_max",
                 },
             ),
             # action transforms
