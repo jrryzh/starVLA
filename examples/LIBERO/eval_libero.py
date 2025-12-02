@@ -18,10 +18,13 @@ from libero.libero.envs import OffScreenRenderEnv
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 from examples.LIBERO.model2libero_interface import M1Inference
 
+from typing import Union
+
 
 LIBERO_DUMMY_ACTION = [0.0] * 6 + [-1.0]
 LIBERO_ENV_RESOLUTION = 256  # resolution used to render training data
-def _binarize_gripper_open(open_val: np.ndarray | float) -> np.ndarray:
+# def _binarize_gripper_open(open_val: np.ndarray | float) -> np.ndarray:
+def _binarize_gripper_open(open_val: Union[np.ndarray, float]) -> np.ndarray:
     arr = np.asarray(open_val, dtype=np.float32).reshape(-1)
     v = float(arr[0])
     bin_val = 1.0 - 2.0 * (v > 0.5)
@@ -40,6 +43,9 @@ class Args:
     task_suite_name: str = "libero_goal"  # Task suite. Options: libero_spatial, libero_object, libero_goal, libero_10, libero_90
     num_steps_wait: int = 10  # Number of steps to wait for objects to stabilize i n sim
     num_trials_per_task: int = 50  # Number of rollouts per task
+    
+    # NOTE: check execution effect
+    action_execution_size: int = -1
 
     #################################################################################################################
     # Utils
@@ -89,6 +95,8 @@ def eval_libero(args: Args) -> None:
         host=args.host,
         port=args.port,
         image_size=args.resize_size,
+        # NOTE: check execution size effect
+        action_execution_size=args.action_execution_size
     )
 
 

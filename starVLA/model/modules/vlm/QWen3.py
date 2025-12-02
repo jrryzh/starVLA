@@ -57,7 +57,9 @@ class _QWen3_VL_Interface(nn.Module):
 
         model = Qwen3VLForConditionalGeneration.from_pretrained(
             model_id,
-            attn_implementation= "sdpa", # "flash_attention_2",
+            # attn_implementation="flash_attention_2",
+            # HACK: work around for sdpa now
+            attn_implementation="sdpa",
             dtype=torch.bfloat16,
             device_map="cuda",
         )
