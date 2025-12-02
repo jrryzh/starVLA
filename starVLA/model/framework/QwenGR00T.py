@@ -78,10 +78,12 @@ class Qwen_GR00T(baseframework):
         """
 
         """
+
+        # from IPython import embed; embed()
         batch_images = [example["image"] for example in examples]  #  [B，[PLT]]
-        instructions = [example["lang"] for example in examples]  # [B, str]
-        actions = [example["action"] for example in examples]  # label [B， len, 7]
-        
+        instructions = [example["lang"] for example in examples]  # [B, str]  e.g.'Use your right arm to pick up the yellow box of cookies from the right side of the table.'
+        actions = [example["action"] for example in examples]  # [B， action_chunk, action_dim]
+        # 这里竟然没有state
         state = [example["state"] for example in examples] if "state" in examples[0] else None  # [B, 1, state_dim]
         
 
@@ -152,6 +154,7 @@ class Qwen_GR00T(baseframework):
             dict:
                 normalized_actions (np.ndarray): Shape [B, T, action_dim], diffusion-sampled normalized actions.
         """
+        # from IPython import embed; embed()
         train_obs_image_size = getattr(self.config.datasets.vla_data, "image_size", None)
         if train_obs_image_size:
             batch_images = resize_images(batch_images, target_size=train_obs_image_size)

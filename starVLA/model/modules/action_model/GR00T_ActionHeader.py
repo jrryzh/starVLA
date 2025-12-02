@@ -273,6 +273,8 @@ class FlowmatchingActionHead(nn.Module):
         vl_embs: shape (B, seq_length, feature_dim)
         actions: shape (B, future_action_window_size, D_action)
         """
+
+        # from IPython import embed; embed()
         device = vl_embs.device
 
         # Embed noised action trajectory.
@@ -305,13 +307,13 @@ class FlowmatchingActionHead(nn.Module):
 
         # Join VLM features with state and action embedding along sequence dimension.
         model_output = self.model(
-            hidden_states=sa_embs,
-            encoder_hidden_states=vl_embs,
+            hidden_states=sa_embs, # torch.Size([64, 40, 768])
+            encoder_hidden_states=vl_embs, # torch.Size([64, 268, 2048])
             timestep=t_discretized,
             return_all_hidden_states=False,  # NOTE (YL): not using flare now
         )
         pred = self.action_decoder(model_output)
-        pred_actions = pred[:, -actions.shape[1] :]
+        pred_actions = pred[:, -actions.shape[1] :] # take out the part for actual action
 
         # Slice out only the action portion of pred and target.
         loss = ((pred_actions - velocity) ** 2).mean()

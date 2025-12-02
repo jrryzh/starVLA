@@ -265,7 +265,14 @@ def read_mode_config(pretrained_checkpoint):
 
         # [Validate] Checkpoint Path should look like `.../<RUN_ID>/checkpoints/<CHECKPOINT_PATH>.pt`
         assert checkpoint_pt.suffix == ".pt"
-        run_dir = checkpoint_pt.parents[1]
+        run_dir = checkpoint_pt.parents[0]
+
+        # HACK: use parent directory if config.yaml is not found
+        try:
+            while not os.path.exists(run_dir / "config.yaml"):
+                run_dir = run_dir.parents[0]
+        except:
+            import ipdb; ipdb.set_trace()
 
         # Get paths for `config.json`, `dataset_statistics.json` and pretrained checkpoint
         config_yaml, dataset_statistics_json = run_dir / "config.yaml", run_dir / "dataset_statistics.json"

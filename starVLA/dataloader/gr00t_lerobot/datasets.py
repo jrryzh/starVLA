@@ -166,6 +166,8 @@ class LeRobotSingleDataset(Dataset):
 
         self._trajectory_ids, self._trajectory_lengths = self._get_trajectories()
         self._modality_keys = self._get_modality_keys()
+        # from IPython import embed; embed()  
+
         self._delta_indices = self._get_delta_indices()
         self._all_steps = self._get_all_steps()
         self.set_transforms_metadata(self.metadata)
