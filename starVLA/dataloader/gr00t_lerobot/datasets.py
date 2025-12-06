@@ -119,6 +119,7 @@ class LeRobotSingleDataset(Dataset):
         video_backend_kwargs: dict | None = None,
         transforms: ComposedModalityTransform | None = None,
         delete_pause_frame: bool = False,
+        use_instruction_segments: bool = False,
     ):
         """
         Initialize the dataset.
@@ -137,6 +138,7 @@ class LeRobotSingleDataset(Dataset):
             raise FileNotFoundError(f"Dataset path {dataset_path} does not exist")
 
         self.delete_pause_frame = delete_pause_frame
+        self.use_instruction_segments = use_instruction_segments
 
         self.modality_configs = modality_configs
         self.video_backend = video_backend
@@ -166,7 +168,8 @@ class LeRobotSingleDataset(Dataset):
 
         self._trajectory_ids, self._trajectory_lengths = self._get_trajectories()
         self._modality_keys = self._get_modality_keys()
-        # from IPython import embed; embed()  
+        self._instruction_segments = self._get_instruction_segments() if self.use_instruction_segments else None
+        # from IPython import embed; embed()
 
         self._delta_indices = self._get_delta_indices()
         self._all_steps = self._get_all_steps()
@@ -461,15 +464,35 @@ class LeRobotSingleDataset(Dataset):
         return hashlib.md5(config_str.encode()).hexdigest()[:12]  #
 
 
+    def _get_valid_frame_ranges(self, trajectory_id: int) -> list[tuple[int, int]]:
+        """Get valid frame ranges for a trajectory based on instruction segments."""
+        if not self.use_instruction_segments or self._instruction_segments is None:
+            return [(0, self.trajectory_lengths[self.get_trajectory_index(trajectory_id)])]
+
+        traj_id_str = str(trajectory_id)
+        if traj_id_str not in self._instruction_segments:
+            # If no instruction segments for this trajectory, use full range
+            return [(0, self.trajectory_lengths[self.get_trajectory_index(trajectory_id)])]
+
+        segments = self._instruction_segments[traj_id_str]
+        valid_ranges = []
+
+        for segment in segments:
+            start_frame = segment.get("start_frame_index", 0)
+            end_frame = segment.get("end_frame_index", self.trajectory_lengths[self.get_trajectory_index(trajectory_id)])
+            valid_ranges.append((start_frame, end_frame))
+
+        return valid_ranges
+
     def _get_all_steps_single_process(self) -> list[tuple[int, int]]:
         """Original single-process implementation as fallback."""
         all_steps: list[tuple[int, int]] = []
         skipped_trajectories = 0
         processed_trajectories = 0
-        
+
         # Check if language modality is configured
         has_language_modality = 'language' in self.modality_keys and len(self.modality_keys['language']) > 0
-        
+
         for trajectory_id, trajectory_length in tqdm(zip(self.trajectory_ids, self.trajectory_lengths), total=len(self.trajectory_ids), desc="Getting All Step"):
             data = self.get_trajectory_data(trajectory_id)
             trajectory_skipped = False
@@ -492,24 +515,32 @@ class LeRobotSingleDataset(Dataset):
             
             if not trajectory_skipped:
                 processed_trajectories += 1
-            
-            if self.delete_pause_frame:
-                # Get position and gripper fields based on available columns
-                delta_position_values, gripper_values = self._get_position_and_gripper_values(data)
-                previous_gripper = gripper_values[0]
-                for base_index in range(trajectory_length):
-                    if base_index >= len(delta_position_values) or base_index >= len(gripper_values):
-                        break
-                        
-                    # Check for translation change using the detected position fields
-                    has_translation_change = np.any(np.abs(delta_position_values[base_index]) > EPSILON)
-                    has_gripper_change = gripper_values[base_index] != (previous_gripper if base_index == 0 else gripper_values[base_index-1])
-                    
-                    if has_translation_change or has_gripper_change:
-                        all_steps.append((trajectory_id, base_index))
-            else:
-                for base_index in range(trajectory_length):
-                    all_steps.append((trajectory_id, base_index))
+
+                # Get valid frame ranges for this trajectory
+                valid_ranges = self._get_valid_frame_ranges(trajectory_id)
+
+                if self.delete_pause_frame:
+                    # Get position and gripper fields based on available columns
+                    delta_position_values, gripper_values = self._get_position_and_gripper_values(data)
+                    previous_gripper = gripper_values[0]
+
+                    # Only process frames within valid ranges
+                    for start_frame, end_frame in valid_ranges:
+                        for base_index in range(max(0, start_frame), min(trajectory_length, end_frame + 1)):
+                            if base_index >= len(delta_position_values) or base_index >= len(gripper_values):
+                                break
+
+                            # Check for translation change using the detected position fields
+                            has_translation_change = np.any(np.abs(delta_position_values[base_index]) > EPSILON)
+                            has_gripper_change = gripper_values[base_index] != (previous_gripper if base_index == 0 else gripper_values[base_index-1])
+
+                            if has_translation_change or has_gripper_change:
+                                all_steps.append((trajectory_id, base_index))
+                else:
+                    # Only include frames within valid ranges
+                    for start_frame, end_frame in valid_ranges:
+                        for base_index in range(max(0, start_frame), min(trajectory_length, end_frame + 1)):
+                            all_steps.append((trajectory_id, base_index))
                     
         # Print summary statistics
         print(f"Single-process summary: Processed {processed_trajectories} trajectories, skipped {skipped_trajectories} empty trajectories")
@@ -669,6 +700,14 @@ class LeRobotSingleDataset(Dataset):
             tasks = [json.loads(line) for line in f]
         df = pd.DataFrame(tasks)
         return df.set_index("task_index")
+
+    def _get_instruction_segments(self) -> dict[str, list[dict]]:
+        """Get the instruction segments for the dataset."""
+        if "instruction_segments" in self.lerobot_info_meta:
+            return self.lerobot_info_meta["instruction_segments"]
+        else:
+            print("Warning: No instruction_segments found in info.json")
+            return {}
 
     def _check_integrity(self):
         """Use the config to check if the keys are valid and detect silent data corruption."""
@@ -968,7 +1007,7 @@ class LeRobotSingleDataset(Dataset):
             step_indices=step_indices,
             max_length=max_length,
             # padding_strategy="first_last" if state_or_action_cfg.absolute else "zero",
-            padding_strategy="zero",           # HACK for realdata
+            padding_strategy="first_last",           # NOTE(JY) this should be first_last, never zero
         )
 
     def get_language(
@@ -1149,7 +1188,7 @@ class LeRobotSingleDataset(Dataset):
 
 
 class CachedLeRobotSingleDataset(LeRobotSingleDataset):
-    def __init__(self, img_resize: tuple[int, int] | None = None, *args, **kwargs):
+    def __init__(self, img_resize: tuple[int, int] | None = None, use_instruction_segments: bool = False, *args, **kwargs):
         """
         This class caches the video frames for each trajectory and key.
         It is recommended to use this class if the video frames need to be accessed multiple times.
@@ -1164,7 +1203,7 @@ class CachedLeRobotSingleDataset(LeRobotSingleDataset):
         self.img_resize = img_resize
 
         # Initialize img_resize attribute first to ensure it exists
-        super().__init__(*args, **kwargs)
+        super().__init__(use_instruction_segments=use_instruction_segments, *args, **kwargs)
         cached_frames: dict[str, np.ndarray] = {}
 
         for key in self.modality_keys["video"]:

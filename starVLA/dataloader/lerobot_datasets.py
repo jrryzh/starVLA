@@ -15,6 +15,7 @@ def make_LeRobotSingleDataset(
     data_name: str,
     robot_type: str,  # 新增参数
     delete_pause_frame: bool = False,
+    use_instruction_segments: bool = False,
 ) -> LeRobotSingleDataset:
     """
     Make a LeRobotSingleDataset object.
@@ -42,6 +43,7 @@ def make_LeRobotSingleDataset(
         embodiment_tag=embodiment_tag,
         video_backend="torchvision_av",
         delete_pause_frame=delete_pause_frame,
+        use_instruction_segments=use_instruction_segments,
     )
 
 def get_vla_dataset(
@@ -51,6 +53,7 @@ def get_vla_dataset(
     balance_trajectory_weights: bool = False,
     seed: int = 42,
     delete_pause_frame: bool = True,
+    use_instruction_segments: bool = False,
     **kwargs: dict,
 ) -> LeRobotMixtureDataset:
     """
@@ -77,7 +80,7 @@ def get_vla_dataset(
         if robot_type == "agibot_franka":
             effective_delete_pause_frame = False
 
-        dataset_mixture.append((make_LeRobotSingleDataset(Path(data_root_dir), d_name, robot_type, delete_pause_frame=effective_delete_pause_frame), d_weight))
+        dataset_mixture.append((make_LeRobotSingleDataset(Path(data_root_dir), d_name, robot_type, delete_pause_frame=effective_delete_pause_frame, use_instruction_segments=use_instruction_segments), d_weight))
 
     return LeRobotMixtureDataset(
         dataset_mixture,
